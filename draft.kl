@@ -1,0 +1,109 @@
+sint: typeset = { i8, i16, i32, i64 }
+uint: typeset = { u8, u16, u32, u64 }
+int: typeset = sint ∪ uint;
+float: typeset = { f32, f64 };
+numeric: typeset = integer ∪ float;
+
+mod intrinsics {
+	eq ((a: T, b: T) -> bool) { compiler_defined } [prefix, infix]
+	and ((a: T, b: T) -> T) { compiler_defined } [prefix, infix, T ∈ int]
+	or ((a: T, b: T) -> T) { compiler_defined } [prefix, infix, T ∈ int]
+	// ..
+}
+
+enum bool { true, false }
+
+each (x: set[T] -> for[T]) { idk } [prefix]
+each (x: typeset[T] -> for[T]) { idk } [prefix]
+each (x: slice[T] -> for[T]) { idk } [prefix]
+each (x: vec[T] -> for[T]) { idk } [prefix]
+each (x: array[T, N] -> for[T]) { idk } [prefix, N ∈ ℤ]
+
+¬ (x: T -> bool) [alias { !, not }, prefix { tighter_than all }]
+- (x: T -> T) [alias neg, prefix { like ¬ }]
+
+× ((a: T, b: T) -> T) [alias { *, ⋅, mul }, infix { associativity <, looser_than ¬ }]
+÷ ((a: T, b: T) -> T) [alias { /, div }, infix { like × }]
+rem ((a: T, b: T) -> T) [infix { like × }]
+mod ((a: T, b: T) -> T) [infix { like × }]
+∣ ((a: T, b: T) -> T) { a mod b == 0 } [infix { like × }]
+∤ ((a: T, b: T) -> T) { ¬(a ∣ b) } [infix { like × }]
+
++ ((a: T, b: T) -> T) [alias add, infix { associativity <, looser_than × }]
+- ((a: T, b: T) -> T) [alias { −, sub }, infix { like + }]
+
+« ((a: T, b: T) -> T) [alias { <<, shl }, infix { associativity <, looser_than + }]
+» ((a: T, b: T) -> T) [alias { >>, shr }, infix { like « }]
+
+∧ ((a: bool, b: bool) -> bool) { a & b } [infix { associativity <, looser_than « }]
+& ((a: T, b: T) -> T) [alias and, infix { like ∧ }]
+impl bool {
+	∧ ((a, b: λ(() -> me)) -> me) {
+		match a {
+			true => b (),
+			false => false,
+		}
+	}
+}
+
+^ ((a: T, b: T) -> T) [alias xor, infix { associativity <, looser_than & }]
+
+∨ ((a: bool, b: bool) -> bool) { a | b } [infix { associativity <, looser_than ^}]
+impl bool {
+	∨ ((a, b: λ(() -> me)) -> me) {
+		match a {
+			true => true,
+			false => b (),
+		}
+	}
+}
+| ((a: T, b: T) -> T) [alias or, infix { like ∨ }]
+
+≡ ((a: T, b: T) -> bool) [alias { ==, eq }, infix { associativity none, looser_than | }]
+≢ ((a: T, b: T) -> bool) { ¬(a ≡ b) } [alias { ≠, !=, ne }, infix { like ≡ }]
+> ((a: T, b: T) -> bool) [alias { gt }, infix { like ≡ }]
+< ((a: T, b: T) -> bool) [alias { lt }, infix { like ≡ }]
+≤ ((a: T, b: T) -> bool) [alias { <=, ≯, le }, infix { like ≡ }]
+≥ ((a: T, b: T) -> bool) [alias { >=, ≮, ge }, infix { like ≡ }]
+
+impl each int {
+	¬ (a -> me) { intrinsics::complement a }
+	- (a -> me) { intrinsics::negate a }
+	× ((a, b) -> me) { a intrinsics::mul b }
+	÷ ((a, b) -> me) { a intrinsics::div b }
+	rem ((a, b) -> me) { a intrinsics::rem b }
+	..
+	≡ ((a, b) -> bool) { a intrinsics::eq b }
+	& ((a, b) -> me) { a intrinsics::bitand b } 
+}
+
+impl each uint {
+	mod ((a, b) -> me) rem
+}
+
+impl each sint {
+	abs ((x) -> me) {
+		match x {
+			..0 => x × -1,
+			0.. => x,
+		}
+	}
+	mod ((a, b) -> me) {
+		match a % b {
+			x @ ..0 => x + abs x,
+			x @ 0.. => x,
+		}
+	}
+}
+
+mod iterators {
+	next (me => T) [postfix]
+	map ((i: T, fn: λ (T -> U)) -> mapper[T, U]) { mapper { inner: i, fn } } [postfix]
+
+	struct mapper {
+		inner: T,
+		fn: λ (T -> U)
+	}
+	
+	next (me { inner, fn }: mapper[T] -> U) { fn (inner next) }
+}
