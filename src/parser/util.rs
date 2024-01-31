@@ -79,16 +79,26 @@ macro_rules! tok {
 }
 macro_rules! parser {
     ($t:ty) => {
-        impl Parser<'s, SpannedInput<Token<'s>, SimpleSpan, Stream<Lexer<'s>>>, $t, extra::Err<Error<'s>>> + Clone
+        impl Parser<'s, crate::parser::types::Input<'s>, $t, extra::Err<Error<'s>>> + Clone
     }
 }
 
+pub trait TakeSpan {
+    fn tspn<T>(&mut self, x: T) -> Spanned<T>;
+}
+
+impl<'a, 'b> TakeSpan for MapExtra<'a, 'b, Input<'a>, chumsky::extra::Err<Error<'a>>> {
+    fn tspn<T>(&mut self, x: T) -> Spanned<T> {
+        Spanned::from((x, self.span()))
+    }
+}
 macro_rules! spanned {
     () => {
-        |a, extra| (a, extra.span())
+        |a, extra| Spanned::from((a, extra.span()))
     };
 }
 
+use chumsky::input::MapExtra;
 pub(crate) use parser;
 pub(crate) use spanned;
 pub(crate) use tok;
@@ -108,7 +118,7 @@ pub trait Spanner {
     where
         Self: Sized,
     {
-        (self, s)
+        (self, s).into()
     }
 }
 impl<T> Spanner for T {}

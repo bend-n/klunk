@@ -4,6 +4,7 @@ use chumsky::{
     prelude::*,
     Parser,
 };
+mod expression;
 mod types;
 mod util;
 use types::*;
@@ -14,11 +15,11 @@ impl<'s> FixMetaData<'s> {
         x: &[Spanned<FixMetaPiece<'s>>],
         fixness: Fix,
         e: Span,
-    ) -> Result<Self, Error<'s>> {
+    ) -> Result<Spanned<Self>, Error<'s>> {
         let mut looser_than = None;
         let mut tighter_than = None;
         let mut assoc = None;
-        for &(x, span) in x {
+        for &Spanned { inner: x, span } in x {
             match x {
                 FixMetaPiece::A(_) if assoc.is_some() => {
                     return Err(Rich::custom(span, "duplicate associatity meta elements"))
@@ -29,9 +30,9 @@ impl<'s> FixMetaData<'s> {
                 FixMetaPiece::T(_) if tighter_than.is_some() => {
                     return Err(Rich::custom(span, "duplicate tightness meta elements"))
                 }
-                FixMetaPiece::A(x) => assoc = Some(x),
-                FixMetaPiece::L(x) => looser_than = Some(x),
-                FixMetaPiece::T(x) => tighter_than = Some(x),
+                FixMetaPiece::A(x) => assoc = Some(Spanned::from((x, span))),
+                FixMetaPiece::L(x) => looser_than = Some(Spanned::from((x, span))),
+                FixMetaPiece::T(x) => tighter_than = Some(Spanned::from((x, span))),
             }
         }
 
@@ -45,6 +46,7 @@ impl<'s> FixMetaData<'s> {
             None => Err(Rich::custom(e, "precedence meta required")),
             Some(()) => Ok(x),
         })
+        .map(|x| Spanned::from((x, e)))
     }
 }
 
@@ -191,9 +193,9 @@ impl<'s> Meta<'s> {
     fn pieces() -> parser![Vec<Spanned<FixMetaPiece<'s>>>] {
         use FixMetaPiece::*;
         choice((
-            Meta::associativity().map(|x| x.ml(A)),
-            Meta::looser().map(|x| x.ml(L)),
-            Meta::tighter().map(|x| x.ml(T)),
+            Meta::associativity().map(|x| x.map(A)),
+            Meta::looser().map(|x| x.map(L)),
+            Meta::tighter().map(|x| x.map(T)),
         ))
         .separated_by(tok![,])
         .collect::<Vec<_>>()
@@ -203,7 +205,7 @@ impl<'s> Meta<'s> {
     fn prefix() -> parser![Meta<'s>] {
         tok![prefix]
             .ignore_then(choice((
-                Meta::like().map(|x| Meta::Fix(FixMeta::Like(Fix::Pre, x))),
+                Meta::like().map_with(|x, e| Meta::Fix(FixMeta::Like(Fix::Pre, x, e.span()))),
                 Meta::pieces()
                     .try_map(|x, e| {
                         FixMetaData::from_pieces(&x, Fix::Pre, e)
@@ -216,7 +218,7 @@ impl<'s> Meta<'s> {
                             .map(|x| Meta::Fix(FixMeta::Data(x)))
                     })
                     .delimited_by(tok![lbrace], tok![rbrace]),
-                empty().map(|()| Meta::Fix(FixMeta::Default(Fix::Pre))),
+                empty().map_with(|(), e| Meta::Fix(FixMeta::Default(e.tspn(Fix::Pre)))),
             )))
             .labelled("prefix meta")
     }
@@ -224,7 +226,7 @@ impl<'s> Meta<'s> {
     fn postfix() -> parser![Meta<'s>] {
         tok![postfix]
             .ignore_then(choice((
-                Meta::like().map(|x| Meta::Fix(FixMeta::Like(Fix::Post, x))),
+                Meta::like().map_with(|x, e| Meta::Fix(FixMeta::Like(Fix::Post, x, e.span()))),
                 Meta::pieces()
                     .try_map(|x, e| {
                         FixMetaData::from_pieces(&x, Fix::Post, e)
@@ -237,7 +239,7 @@ impl<'s> Meta<'s> {
                             .map(|x| Meta::Fix(FixMeta::Data(x)))
                     })
                     .delimited_by(tok![lbrace], tok![rbrace]),
-                empty().map(|()| Meta::Fix(FixMeta::Default(Fix::Post))),
+                empty().map_with(|(), e| Meta::Fix(FixMeta::Default(e.tspn(Fix::Post)))),
             )))
             .labelled("postfix meta")
     }
@@ -245,7 +247,7 @@ impl<'s> Meta<'s> {
     fn infix() -> parser![Meta<'s>] {
         tok![infix]
             .ignore_then(choice((
-                Meta::like().map(|x| Meta::Fix(FixMeta::Like(Fix::In, x))),
+                Meta::like().map_with(|x, e| Meta::Fix(FixMeta::Like(Fix::In, x, e.span()))),
                 Meta::pieces()
                     .try_map(|x, e| {
                         FixMetaData::from_pieces(&x, Fix::In, e)
@@ -256,7 +258,7 @@ impl<'s> Meta<'s> {
                             .map(|x| Meta::Fix(FixMeta::Data(x)))
                     })
                     .delimited_by(tok![lbrace], tok![rbrace]),
-                empty().map(|()| Meta::Fix(FixMeta::Default(Fix::In))),
+                empty().map_with(|(), e| Meta::Fix(FixMeta::Default(e.tspn(Fix::In)))),
             )))
             .labelled("infix meta")
     }
@@ -288,9 +290,10 @@ impl<'s> FnDef<'s> {
             .labelled("function signature")
     }
 
-    fn block() -> parser![Expr<'s>] {
-        expr()
-            .clone()
+    fn block() -> parser![Vec<Token<'s>>] {
+        any()
+            .repeated()
+            .collect::<Vec<_>>()
             .delimited_by(tok![lbrace], tok![rbrace])
             .labelled("block")
     }

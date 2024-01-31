@@ -19,10 +19,10 @@ each (x: slice[T] -> for[T]) { idk } [prefix]
 each (x: vec[T] -> for[T]) { idk } [prefix]
 each (x: array[T, N] -> for[T]) { idk } [prefix, N ∈ ℤ]
 
-¬ (x: T -> bool) [alias { !, not }, prefix { tighter_than all }]
+¬ (x: T -> bool) [alias { !, not }, prefix { looser_than function }]
 - (x: T -> T) [alias neg, prefix { like ¬ }]
 
-× ((a: T, b: T) -> T) [alias { *, ⋅, mul }, infix { associativity <, looser_than ¬ }]
+× ((a: T, b: T) -> T) [alias { *, ⋅, mul }, infix { associativity <, looser_than top }]
 ÷ ((a: T, b: T) -> T) [alias { /, div }, infix { like × }]
 rem ((a: T, b: T) -> T) [infix { like × }]
 mod ((a: T, b: T) -> T) [infix { like × }]
@@ -32,10 +32,10 @@ mod ((a: T, b: T) -> T) [infix { like × }]
 + ((a: T, b: T) -> T) [alias add, infix { associativity <, looser_than × }]
 - ((a: T, b: T) -> T) [alias { −, sub }, infix { like + }]
 
-« ((a: T, b: T) -> T) [alias { <<, shl }, infix { associativity <, looser_than + }]
-» ((a: T, b: T) -> T) [alias { >>, shr }, infix { like « }]
+shl ((a: T, b: T) -> T) [alias { << }, infix { associativity <, looser_than + }]
+shr ((a: T, b: T) -> T) [alias { >> }, infix { like « }]
 
-∧ ((a: bool, b: bool) -> bool) { a & b } [infix { associativity <, looser_than « }]
+∧ ((a: bool, b: bool) -> bool) { a & b } [infix { associativity <, looser_than shl }]
 & ((a: T, b: T) -> T) [alias and, infix { like ∧ }]
 impl bool {
 	∧ ((a, b: λ(() -> me)) -> me) {

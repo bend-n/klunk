@@ -1,4 +1,4 @@
-#![feature(iter_intersperse)]
+#![feature(iter_intersperse, let_chains)]
 use chumsky::error::RichReason;
 use comat::cformat as cmt;
 use std::process::ExitCode;
